@@ -1,0 +1,9 @@
+width = 520
+height = 520    
+fov = 90
+step_number = 32
+min_dist = 0.01
+max_dist = 50.0
+small_step = 0.001
+tile_size = 128
+threads = 12
