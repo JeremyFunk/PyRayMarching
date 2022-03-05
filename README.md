@@ -1,2 +1,2 @@
 # PyRayMarching
-RayMarcher in Python because I hate performance
+RayMarcher in Python because I hate performance.
