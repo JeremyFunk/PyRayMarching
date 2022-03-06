@@ -7,49 +7,101 @@ from evaluator import convert_to_evaluator
 
 class Primitive(metaclass=ABCMeta):
     @abstractmethod
-    def __init__(self):
-        pass
+    def __init__(self, pos, rot = [0, 0, 0]):
+        self.rot_ev = convert_to_evaluator(rot)
+        self.pos_ev = convert_to_evaluator(pos)
         
-    @abstractmethod
     def map_primitive(self, pos):
+        pos = helpers.matrix_vec_mul(self.translation_mat_inv, pos)
+        return self._map_primitive(pos)
+    
+    @abstractmethod
+    def _map_primitive(self, pos):
         pass
     
     @abstractmethod
     def evaluate(self, t):
-        pass
-    
+        self.rot = self.rot_ev.evaluate(t)
+        self.pos = self.pos_ev.evaluate(t)
+        self.translation_mat = helpers.matrix_translation(self.rot, self.pos)
+        self.translation_mat_inv = helpers.matrix_inv(self.translation_mat)
+
 class SpherePrimitive(Primitive):
-    def __init__(self, pos, rad):
-        self.pos_ev = convert_to_evaluator(pos)
+    def __init__(self, pos, rad, rot = [0, 0, 0]):
+        super().__init__(pos, rot)
         self.rad_ev = convert_to_evaluator(rad)
         pass
 
-    def map_primitive(self, pos):
-        dist_vec = [pos[0] - self.pos[0], pos[1] - self.pos[1], pos[2] - self.pos[2]]
-        dist = helpers.vec_len(dist_vec) - self.rad
+    def _map_primitive(self, pos):
+        dist = helpers.vec_len(pos) - self.rad
         return dist
     
     def evaluate(self, t):
-        self.pos = self.pos_ev.evaluate(t)
+        super().evaluate(t)
         self.rad = self.rad_ev.evaluate(t)
 
     
 class BoxPrimitive(Primitive):
-    def __init__(self, pos, bounds):
-        self.pos = convert_to_evaluator(pos)
-        self.bounds = convert_to_evaluator(bounds)
-        pass
+    def __init__(self, pos, bounds, rot = [0, 0, 0]):
+        super().__init__(pos, rot)
+        self.bounds_ev = convert_to_evaluator(bounds)
 
-    def map_primitive(self, pos):
-        dist_vec = [abs(pos[0] - self.pos[0]) - self.bounds[0], abs(pos[1] - self.pos[1]) - self.bounds[1], abs(pos[2] - self.pos[2]) - self.bounds[2]]
-
+    def _map_primitive(self, pos):
+        dist_vec = [abs(pos[0]) - self.bounds[0], abs(pos[1]) - self.bounds[1], abs(pos[2]) - self.bounds[2]]
         return min(max(dist_vec[0],max(dist_vec[1], dist_vec[2])), 0.0) + helpers.vec_len(helpers.vec_max(dist_vec, 0))
 
     def evaluate(self, t):
-        self.pos = self.pos_ev.evaluate(t)
-        self.bounds = self.bounds.evaluate(t)
+        super().evaluate(t)
+        self.bounds = self.bounds_ev.evaluate(t)
     
-# class MergePrimitive(Primtive):
+from enum import Enum
+class MergeMode(Enum):
+    Union = 1,
+    Subtraction = 2,
+    Intersection = 3
+
+class MergePrimitive():
+    def __init__(self, primitive1: Primitive, primitive2: Primitive, mode: MergeMode):
+        self.primitive1 = primitive1
+        self.primitive2 = primitive2
+        self.mode = mode
+
+    def map_primitive(self, pos):
+        d1 = self.primitive1.map_primitive(pos)
+        d2 = self.primitive2.map_primitive(pos)
+        if(self.mode == MergeMode.Union):
+            return min(d1, d2)
+        if(self.mode == MergeMode.Subtraction):
+            return max(-d1, d2)
+        return max(d1, d2)
+
+    def evaluate(self, t):
+        self.primitive1.evaluate(t)
+        self.primitive2.evaluate(t)
+
+class SmoothMergePrimitive():
+    def __init__(self, primitive1: Primitive, primitive2: Primitive, mode: MergeMode, smoothness):
+        self.primitive1 = primitive1
+        self.primitive2 = primitive2
+        self.mode = mode
+        self.smoothness = smoothness
+
+    def map_primitive(self, pos): 
+        d1 = self.primitive1.map_primitive(pos)
+        d2 = self.primitive2.map_primitive(pos)
+        if(self.mode == MergeMode.Union):
+            h = helpers.clamp(.5 + .5 * (d2 - d1) / self.smoothness, 0, 1)
+            return helpers.interpolate(d2, d1, h) - self.smoothness * h * (1.0 - h)
+        if(self.mode == MergeMode.Subtraction):
+            h = helpers.clamp(.5 - .5 * (d2 + d1) / self.smoothness, 0, 1)
+            return helpers.interpolate(d2, -d1, h) + self.smoothness * h * (1.0 - h)
+        
+        h = helpers.clamp(.5 - .5 * (d2 - d1) / self.smoothness, 0, 1)
+        return helpers.interpolate(d2, d1, h) + self.smoothness * h * (1.0 - h)
+
+    def evaluate(self, t):
+        self.primitive1.evaluate(t)
+        self.primitive2.evaluate(t)
 
 # class FlowerLike(Primitive):
 #     def __init__(self, pos):

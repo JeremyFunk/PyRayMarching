@@ -55,7 +55,7 @@ class GeneralSolver(Solver):
             if(dist > max_dist):
                 return [False, total_dist, bounces, pos]
 
-            estimator = dist * .99
+            estimator = dist
             total_dist += estimator
             pos = [pos[0] + ray[0] * estimator, pos[1] + ray[1] * estimator, pos[2] + ray[2] * estimator]
         return [False, total_dist, step_number, pos]

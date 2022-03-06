@@ -37,7 +37,6 @@ class InterpolatorEvaluator(Evaluator):
         self.transition_function = transition_function
         
     def _evaluate(self, t):
-            
         f = 0
         if(t != 0):
             f = (t % self.interval) / self.interval
