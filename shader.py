@@ -3,6 +3,7 @@ import math
 import helpers
 import settings
 from solver import IntersectionInfo
+from evaluator import convert_to_evaluator
 import numpy as np
 import light
 
@@ -20,6 +21,31 @@ class Shader(metaclass=ABCMeta):
     def evaluate(self, t):
         pass
     
+
+class ColorShader(Shader):
+    def __init__(self, color = [1,1,1]):
+        self.color = color
+        pass
+    def shade(self, solve: IntersectionInfo):
+        if not solve.hit:
+            return [0, 0, 0]
+        return self.color
+    
+    
+    def evaluate(self, t):
+        pass
+
+class AlbedoShader(Shader):
+    def __init__(self):
+        pass
+    def shade(self, solve: IntersectionInfo):
+        if not solve.hit:
+            return [0, 0, 0]
+        return solve.albedo
+    
+    
+    def evaluate(self, t):
+        pass
 class NormalShader(Shader):
     def __init__(self):
         pass
@@ -69,3 +95,20 @@ class SimpleLightShader(Shader):
     def evaluate(self, t):
         for l in self.lights:
             l.evaluate(t)
+
+class FractalShader(Shader):
+    def __init__(self, frac_col = [1, 1, 1]):
+        self.frac_col_ev = convert_to_evaluator(frac_col)
+        pass
+    def shade(self, solve: IntersectionInfo):
+        if not solve.hit:
+            return [0, 0, 0]
+        bounce_component = 1 / ((solve.bounces * .25) + 1)
+        # simple_albedo = (solve.albedo[0] + solve.albedo[1] + solve.albedo[2]) * .33333
+        # fractal_fac = simple_albedo * bounce_component
+        return [bounce_component * self.frac_col[0], bounce_component * self.frac_col[1], bounce_component * self.frac_col[2]]
+    
+    
+    def evaluate(self, t):
+        self.frac_col = self.frac_col_ev.evaluate(t)
+        pass

@@ -19,43 +19,57 @@ import progressbar
 
 freeze_support()
 
-camera_o = camera.PinholeCamera()
+camera_o = camera.PinholeCamera([0, 0, InterpolatorEvaluator(2, 1.4, 3, True, transitions.Smoothstep(2))], [0, 0, 0])
 color_filter1 = color_filter.GrayFilter(.99)
 color_filter2 = color_filter.ColorShift([0, 0, 1], color_filter1)
 film_o = film.FilteredFilm(color_filter2)
 film_o = film.BasicFilm()
 rotation = [
-    InterpolatorEvaluator(0, 180, .5, True, transitions.Smoothstep(2)),
-    InterpolatorEvaluator(0, 180, .5, True, transitions.Smoothstep(2)),
-    InterpolatorEvaluator(0, 180, .5, True, transitions.Smoothstep(2)),
-]
-
-primitives = [
-    # primitive.SpherePrimitive([0, 0, -10], InterpolatorEvaluator(2, 3, .5, True, transitions.Smoothstep(2))),
-    # primitive.BoxPrimitive([0, 0, -5], [1,1,1], [0, 0, 0])
-    # primitive.SiperskiPyramid([0, 0, 5])
-    primitive.SmoothMergePrimitive(
-        primitive.SpherePrimitive([InterpolatorEvaluator(5, 3, 1, True, transitions.Smoothstep(2)), 0, -15], InterpolatorEvaluator(2, 3, 1, True, transitions.Smoothstep(2)), rotation), 
-        primitive.SpherePrimitive([InterpolatorEvaluator(-8, -2, 1, True, transitions.CatmullRomSpline(-3, 1)), 0, -15], InterpolatorEvaluator(2, 3, 1, True, transitions.Smoothstep(2))),
-        primitive.MergeMode.Union,
-        2
-    )
+    InterpolatorEvaluator(160, 180, 3, True, transitions.Smoothstep(2)),
+    0,
+    0
 ]
 
 # solver = solver.DisplacedSphereSolver([0, 0, -5], 2)
-modifiers = [
-    modifiers.Distort(InterpolatorEvaluator(0, .5, 2, True, None, .2), [0, 0, 0], 2.0),
-    modifiers.Distort(InterpolatorEvaluator(.1, .2, 1, True, None, .4), [1, 1, 1], 4.0),
-    modifiers.Distort(InterpolatorEvaluator(0, .1, .2, True, None, .6), [2, 2, 2], 8.0),
+pos_modifiers = [
+    # modifiers.Distort(InterpolatorEvaluator(0, .5, 2, True, None, .2), [0, 0, 0], 2.0),
+    # modifiers.Distort(InterpolatorEvaluator(.1, .2, 1, True, None, .4), [1, 1, 1], 4.0),
+    # modifiers.Distort(InterpolatorEvaluator(0, .1, .2, True, None, .6), [2, 2, 2], 8.0),
+    # modifiers.Repetition(10)
+    # modifiers.RepetitionLimited(4, [3, 4, 1]),
+    # modifiers.Twist(InterpolatorEvaluator(0, 10, 1, True, transitions.Smoothstep(2)))
+    # modifiers.Bend(.1)     
 ]
-solver = solver.GeneralSolver(primitives, modifiers)
-# shader = shader.SimpleLightShader([-3, -4, -2], [1, .2, .4])
+
+dist_modifiers = [
+    # modifiers.Round(1)
+    # modifiers.Onion(.5)
+]
+
+primitives = [
+    # primitive.SpherePrimitive([0, 0, -40], 2),
+    # primitive.BoxPrimitive([0, 0, -30], [1,1,1], [0, 0, 0], pos_modifiers=pos_modifiers, dist_modifiers=dist_modifiers)
+    # primitive.Torus([0, 0, -5], radius=2, ring_diameter=1, rot=[0, 0, 0], pos_modifiers=pos_modifiers, dist_modifiers=dist_modifiers)
+    primitive.Mandelbulb2([0, 0, 0], InterpolatorEvaluator(10, 30, 20, True), rotation)
+    # primitive.SiperskiPyramid([0, 0, 5])
+    # primitive.SmoothMergePrimitive(
+    #     primitive.SpherePrimitive([InterpolatorEvaluator(5, 3, 1, True, transitions.Smoothstep(2)), -5, -15], InterpolatorEvaluator(2, 3, 1, True, transitions.Smoothstep(2)), rotation), 
+    #     primitive.SpherePrimitive([InterpolatorEvaluator(-8, -2, 1, True, transitions.CatmullRomSpline(-3, 1)), -5, -15], InterpolatorEvaluator(2, 3, 1, True, transitions.Smoothstep(2))),
+    #     primitive.MergeMode.Union,
+    #     2
+    # )
+]
+
+solver = solver.GeneralSolver(primitives, [])
+
 
 lights = {
     light.PointLight([-10, 4, -2], [1, .2, 0], 300),
     light.PointLight([10 , -4, -8], [0, 1, 1], 300)
 }
-shader = shader.SimpleLightShader(lights)
+# shader = shader.ColorShader()
+shader = shader.FractalShader([.7, .4, .6])
+# shader = shader.SimpleLightShader(lights)
 
 
 if __name__ == "__main__":

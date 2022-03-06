@@ -40,7 +40,7 @@ class CameraRayRenderer(Renderer):
     def render(self):
         for x in range(width):
             for y in range(height):
-                self.film.write_pixel(x, y, self.camera.generate_ray(x, y))
+                self.film.write_pixel(x, y, self.camera.generate_ray(x, y)[0])
                 
     def get_image(self):
         return self.film.build_image()
@@ -112,7 +112,7 @@ class SolverRenderer(Renderer):
             curX = []
             for y in range(min_y, max_y):
                 ray = self.camera.generate_ray(x, y)
-                solve = self.solver.solve([0,0,0], ray, 0)
+                solve = self.solver.solve(ray[1], ray[0])
                 # col = [1 / solve.dist, 1 / solve.dist, 1 / solve.dist
                 col = self.shader.shade(solve)
                 curX.append(col)

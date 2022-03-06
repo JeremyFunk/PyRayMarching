@@ -3,38 +3,60 @@ from settings import max_dist, min_dist, step_number, small_step
 import helpers
 import math
 import numpy as np
+import modifiers
 from evaluator import convert_to_evaluator
+from dataclasses import dataclass
+
+@dataclass
+class MapReturn:
+    albedo: [float]
+    distance: float
 
 class Primitive(metaclass=ABCMeta):
     @abstractmethod
-    def __init__(self, pos, rot = [0, 0, 0]):
+    def __init__(self, pos, rot = [0, 0, 0], scale = [1, 1, 1], pos_modifiers: [modifiers.PosModifier] = [], dist_modifiers: [modifiers.DistanceModifier] = []):
+        self.pos_modifiers = pos_modifiers
+        self.dist_modifiers = dist_modifiers
         self.rot_ev = convert_to_evaluator(rot)
         self.pos_ev = convert_to_evaluator(pos)
+        self.scale_ev = convert_to_evaluator(scale)
         
-    def map_primitive(self, pos):
+    def map_primitive(self, pos) -> MapReturn:
         pos = helpers.matrix_vec_mul(self.translation_mat_inv, pos)
-        return self._map_primitive(pos)
+
+        for m in self.pos_modifiers:
+            pos = m.modify(pos)
+
+        ret = self._map_primitive(pos)
+        for d in self.dist_modifiers:
+            ret.distance = d.modify(distance)
+        return ret
     
     @abstractmethod
-    def _map_primitive(self, pos):
+    def _map_primitive(self, pos) -> MapReturn:
         pass
     
     @abstractmethod
     def evaluate(self, t):
         self.rot = self.rot_ev.evaluate(t)
         self.pos = self.pos_ev.evaluate(t)
-        self.translation_mat = helpers.matrix_translation(self.rot, self.pos)
+        self.scale = self.scale_ev.evaluate(t)
+        self.translation_mat = helpers.matrix_translation(self.rot, self.pos, self.scale)
         self.translation_mat_inv = helpers.matrix_inv(self.translation_mat)
+        for m in self.pos_modifiers:
+            m.evaluate(t)
+        for m in self.dist_modifiers:
+            m.evaluate(t)
 
 class SpherePrimitive(Primitive):
-    def __init__(self, pos, rad, rot = [0, 0, 0]):
-        super().__init__(pos, rot)
+    def __init__(self, pos, rad, rot = [0, 0, 0], scale=[1, 1, 1], pos_modifiers = [], dist_modifiers = []):
+        super().__init__(pos, rot, scale, pos_modifiers, dist_modifiers)
         self.rad_ev = convert_to_evaluator(rad)
         pass
 
     def _map_primitive(self, pos):
         dist = helpers.vec_len(pos) - self.rad
-        return dist
+        return MapReturn([1,1,1], dist)
     
     def evaluate(self, t):
         super().evaluate(t)
@@ -42,18 +64,35 @@ class SpherePrimitive(Primitive):
 
     
 class BoxPrimitive(Primitive):
-    def __init__(self, pos, bounds, rot = [0, 0, 0]):
-        super().__init__(pos, rot)
+    def __init__(self, pos, bounds, rot = [0, 0, 0], pos_modifiers = [], dist_modifiers = []):
+        super().__init__(pos, rot, [1, 1, 1], pos_modifiers, dist_modifiers)
         self.bounds_ev = convert_to_evaluator(bounds)
 
     def _map_primitive(self, pos):
         dist_vec = [abs(pos[0]) - self.bounds[0], abs(pos[1]) - self.bounds[1], abs(pos[2]) - self.bounds[2]]
-        return min(max(dist_vec[0],max(dist_vec[1], dist_vec[2])), 0.0) + helpers.vec_len(helpers.vec_max(dist_vec, 0))
+        dist =  min(max(dist_vec[0],max(dist_vec[1], dist_vec[2])), 0.0) + helpers.vec_len(helpers.vec_max(dist_vec, 0))
+        return MapReturn([1,1,1], dist)
 
     def evaluate(self, t):
         super().evaluate(t)
         self.bounds = self.bounds_ev.evaluate(t)
     
+class Torus(Primitive):
+    def __init__(self, pos, radius, ring_diameter, rot = [0, 0, 0], pos_modifiers = [], dist_modifiers = []):
+        super().__init__(pos, rot, [1, 1, 1], pos_modifiers, dist_modifiers)
+        self.radius_ev = convert_to_evaluator(radius)
+        self.ring_diameter_ev = convert_to_evaluator(ring_diameter)
+
+    def _map_primitive(self, pos):
+        l = math.sqrt(pos[0] * pos[0] + pos[2] * pos[2]) - self.radius
+        dist =  math.sqrt(l * l + pos[1] * pos[1]) - self.ring_diameter
+        return MapReturn([1,1,1], dist)
+
+    def evaluate(self, t):
+        super().evaluate(t)
+        self.radius = self.radius_ev.evaluate(t)
+        self.ring_diameter = self.ring_diameter_ev.evaluate(t)
+
 from enum import Enum
 class MergeMode(Enum):
     Union = 1,
@@ -69,11 +108,17 @@ class MergePrimitive():
     def map_primitive(self, pos):
         d1 = self.primitive1.map_primitive(pos)
         d2 = self.primitive2.map_primitive(pos)
+        
         if(self.mode == MergeMode.Union):
-            return min(d1, d2)
+            dist = min(d1.distance, d2.distance)
+            return MapReturn([1,1,1], dist)
+
         if(self.mode == MergeMode.Subtraction):
-            return max(-d1, d2)
-        return max(d1, d2)
+            dist =  max(-d1.distance, d2.distance)
+            return MapReturn([1,1,1], dist)
+
+        dist =  max(d1.distance, d2.distance)
+        return MapReturn([1,1,1], dist)
 
     def evaluate(self, t):
         self.primitive1.evaluate(t)
@@ -91,17 +136,115 @@ class SmoothMergePrimitive():
         d2 = self.primitive2.map_primitive(pos)
         if(self.mode == MergeMode.Union):
             h = helpers.clamp(.5 + .5 * (d2 - d1) / self.smoothness, 0, 1)
-            return helpers.interpolate(d2, d1, h) - self.smoothness * h * (1.0 - h)
+            dist = helpers.interpolate(d2, d1, h) - self.smoothness * h * (1.0 - h)
+            return MapReturn([1,1,1], dist)
+
         if(self.mode == MergeMode.Subtraction):
             h = helpers.clamp(.5 - .5 * (d2 + d1) / self.smoothness, 0, 1)
-            return helpers.interpolate(d2, -d1, h) + self.smoothness * h * (1.0 - h)
+            dist = helpers.interpolate(d2, -d1, h) + self.smoothness * h * (1.0 - h)
+            return MapReturn([1,1,1], dist)
         
         h = helpers.clamp(.5 - .5 * (d2 - d1) / self.smoothness, 0, 1)
-        return helpers.interpolate(d2, d1, h) + self.smoothness * h * (1.0 - h)
+        dist = helpers.interpolate(d2, d1, h) + self.smoothness * h * (1.0 - h)
+        return MapReturn([1,1,1], dist)
 
     def evaluate(self, t):
         self.primitive1.evaluate(t)
         self.primitive2.evaluate(t)
+
+class Mandelbulb(Primitive):
+    def __init__(self, pos, rot = [0, 0, 0], pos_modifiers = [], dist_modifiers = []):
+        super().__init__(pos, rot, [1, 1, 1], pos_modifiers, dist_modifiers)
+
+    def _map_primitive(self, pos):
+        w = [pos[0], pos[1], pos[2]]
+        m = helpers.vec_len_squared(w)
+
+        trap = [abs(w[0]), abs(w[1]), abs(w[2]), m]
+        dz = 1.0
+        
+        for i in range(5):
+            # dz = 8.0 * math.pow(m, 3.5) * dz + 1.0
+
+            # r = helpers.vec_len(w)
+            # b = 8.0 * math.acos(w[1] / r)
+            # a = 8.0 * math.atan2(w[0], w[2])
+            # w = [
+            #     pos[0] + pow(r, 8.0) * math.sin(b) * math.sin(a),
+            #     pos[1] + pow(r, 8.0) * math.cos(b),
+            #     pos[2] + pow(r, 8.0) * math.sin(b) * math.cos(a),
+            # ]
+
+            m2 = m*m;
+            m4 = m2*m2;
+            dz = 8.0*math.sqrt(m4*m2*m)*dz + 1.0;
+
+            x = w[0]; x2 = x*x; x4 = x2*x2;
+            y = w[1]; y2 = y*y; y4 = y2*y2;
+            z = w[2]; z2 = z*z; z4 = z2*z2;
+
+            k3 = x2 + z2;
+            k2 = k3*k3*k3*k3*k3*k3*k3;
+            k2 = k2**-.5
+            k1 = x4 + y4 + z4 - 6.0*y2*z2 - 6.0*x2*y2 + 2.0*z2*x2;
+            k4 = x2 - y2 + z2;
+
+            w[0] = pos[0] +  64.0*x*y*z*(x2-z2)*k4*(x4-6.0*x2*z2+z4)*k1*k2;
+            w[1] = pos[1] + -16.0*y2*k3*k4*k4 + k1*k1;
+            w[2] = pos[2] +  -8.0*y*k4*(x4*x4 - 28.0*x4*x2*z2 + 70.0*x4*z4 - 28.0*x2*z2*z4 + z4*z4)*k1*k2;
+
+            trap = [min(abs(w[0]), trap[0]), min(abs(w[1]), trap[1]), min(abs(w[2]), trap[2]), min(trap[3], m)]
+            m = helpers.vec_len_squared(w)
+            if m > 512.0:
+                break
+
+
+            
+        return MapReturn([m, trap[1], trap[2]], .25 * math.log(m) * math.sqrt(m) / dz)
+
+
+        # return 
+
+    def evaluate(self, t):
+        super().evaluate(t)
+
+class Mandelbulb2(Primitive):
+    def __init__(self, pos, power, rot = [0, 0, 0], pos_modifiers = [], dist_modifiers = []):
+        super().__init__(pos, rot, [1, 1, 1], pos_modifiers, dist_modifiers)
+        self.power_ev = convert_to_evaluator(power)
+
+    def _map_primitive(self, pos):
+        z = [pos[0], pos[1], pos[2]]
+        dr = 1.0;
+        r = 0.0;
+        iterations = 0;
+
+        for i in range(25):
+            iterations = i;
+            r = helpers.vec_len(z)
+
+            if (r>2):
+                break;
+            
+            theta = math.acos(z[2]/r);
+            phi = math.atan2(z[1],z[0]);
+            dr =  math.pow( r, self.power-1.0)*self.power*dr + 1.0;
+
+            zr = math.pow( r,self.power);
+            theta = theta*self.power;
+            phi = phi*self.power;
+            
+            z = [math.sin(theta)*math.cos(phi) * zr, math.sin(phi)*math.sin(theta) * zr, math.cos(theta) * zr];
+            z = [z[0] + pos[0], z[1] + pos[1], z[2] + pos[2]];
+        dst = 0.5*math.log(r)*r/dr;
+        return MapReturn([iterations], dst);
+
+
+        # return 
+
+    def evaluate(self, t):
+        super().evaluate(t)
+        self.power = self.power_ev.evaluate(t)
 
 # class FlowerLike(Primitive):
 #     def __init__(self, pos):

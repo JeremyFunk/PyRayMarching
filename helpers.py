@@ -41,7 +41,7 @@ def clamp(val, min, max):
     return min if val < min else (max if val > max else val)
 
 def vec_dot(vec1, vec2):
-    return vec1[0] * vec2[0] + vec1[1] * vec2[1] + vec1[2] + vec2[2]
+    return vec1[0] * vec2[0] + vec1[1] * vec2[1] + vec1[2] * vec2[2]
 
 def vec_max(vec, val):
     return [max(vec[0], val), max(vec[1], val),max(vec[2], val)]
@@ -113,13 +113,21 @@ def matrix_rotation(vec):
 
     return matrix_matrix_mul(matrix_matrix_mul(x_mat, y_mat), z_mat)
 
-def matrix_translation(rot, pos):
-    rot_matrix = matrix_rotation(rot)
-    rot_matrix[3][0] = pos[0]
-    rot_matrix[3][1] = pos[1]
-    rot_matrix[3][2] = pos[2]
+def matrix_scale(scale):
+    m = matrix_identity()
+    m[0][0] = scale[0]
+    m[1][1] = scale[1]
+    m[2][2] = scale[2]
+    return m
 
-    return rot_matrix
+def matrix_translation(rot, pos, scale):
+    transformation_matrix = matrix_rotation(rot)
+    transformation_matrix = matrix_matrix_mul(transformation_matrix, matrix_scale(scale))
+    transformation_matrix[3][0] = pos[0]
+    transformation_matrix[3][1] = pos[1]
+    transformation_matrix[3][2] = pos[2]
+
+    return transformation_matrix
 
 def matrix_transpose(matrix):
     t = matrix_identity()
