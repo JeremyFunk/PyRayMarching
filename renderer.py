@@ -1,11 +1,12 @@
 from abc import ABCMeta, abstractmethod
 import camera
 import film
-from settings import width, height, tile_size, threads, end_frame, start_frame, fps, ups
+from settings import width, height, tile_size, threads, end_frame, start_frame, fps, ups, file_path
 import solver
 import shader
 from multiprocessing import Pool
 import time
+import os
 
 class Renderer(metaclass=ABCMeta):
     @abstractmethod
@@ -49,18 +50,6 @@ class CameraRayRenderer(Renderer):
 
     def prepare_render(self):
         pass
-class VideoRenderer():
-    def __init__(self, renderer: Renderer):
-        self.renderer = renderer
-        pass
-        
-    def render(self):
-        for frame in range(start_frame, end_frame):
-            self.renderer.evaluate(frame / ups)
-            self.renderer.prepare_render()
-            self.renderer.render()
-            img = self.renderer.get_image()
-        pass
 
 class SolverRenderer(Renderer):
     def __init__(self, camera: camera.Camera, film: film.Film, solver: solver.Solver, shader: shader.Shader):
@@ -74,11 +63,11 @@ class SolverRenderer(Renderer):
         render_time = time.perf_counter()
         if(threads == 1):
             e = self._render_thread(0, 0, width, height)
-            print("Render took:" + str(time.perf_counter() - render_time))
+            # print("Render took:" + str(time.perf_counter() - render_time))
             for x in range(len(e['data'])):
                 for y in range(len(e['data'][x])):
                     self.film.write_pixel(x + e['position'][0], y + e['position'][1], e['data'][x][y])
-            print("Total took:" + str(time.perf_counter() - render_time))
+            # print("Total took:" + str(time.perf_counter() - render_time))
             return
 
         tiles_x = width / tile_size
@@ -109,13 +98,13 @@ class SolverRenderer(Renderer):
         result = pool.starmap(self._render_thread, process_data)
         pool.close()
         pool.join()
-        print("Render took:" + str(time.perf_counter() - render_time))
+        # print("Render took:" + str(time.perf_counter() - render_time))
         for e in result:
             for x in range(len(e['data'])):
                 for y in range(len(e['data'][x])):
                     self.film.write_pixel(x + e['position'][0], y + e['position'][1], e['data'][x][y])
         
-        print("Total took:" + str(time.perf_counter() - render_time))
+        # print("Total took:" + str(time.perf_counter() - render_time))
         
     def _render_thread(self, min_x, min_y, max_x, max_y):
         elements = []

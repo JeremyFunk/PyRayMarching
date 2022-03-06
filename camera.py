@@ -24,7 +24,6 @@ class PinholeCamera(Camera):
     def __init__(self):
         super().__init__()
         self.scale = math.radians(float(settings.fov) * .5)
-        print(self.scale)
         
     def generate_ray(self, x, y):
         rx = (2 * (x + .5) / self.width - 1) * self.ar * self.scale

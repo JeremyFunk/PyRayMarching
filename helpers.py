@@ -1,4 +1,6 @@
 import math
+import settings
+import os
 
 def vec_len_squared(vec):
     return vec[0] * vec[0] + vec[1] * vec[1] + vec[2] * vec[2]
@@ -42,4 +44,7 @@ def vec_max(vec, val):
     
 def vec_min(vec, val):
     return [min(vec[0], val), min(vec[1], val),min(vec[2], val)]
+
+def save_video():
+    os.system("ffmpeg -r " + str(settings.fps) + " -i results/img%01d.png -vb 20M -vcodec mpeg4 -y results/movie.mp4")
 

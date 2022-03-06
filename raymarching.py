@@ -10,7 +10,11 @@ import shader
 import primitive
 import modifiers
 import light
+from evaluator import InterpolatorEvaluator
+import os
 from multiprocessing import freeze_support
+import settings
+import progressbar
 
 freeze_support()
 
@@ -21,12 +25,15 @@ film_o = film.FilteredFilm(color_filter2)
 film_o = film.BasicFilm()
 
 primitives = [
-    primitive.SpherePrimitive([0, 0, -10], 2)
+    primitive.SpherePrimitive([0, 0, -10], InterpolatorEvaluator(2, 3, .5, True))
     # primitive.SiperskiPyramid([0, 0, 5])
 ]
 
 # solver = solver.DisplacedSphereSolver([0, 0, -5], 2)
-solver = solver.GeneralSolver(primitives, [modifiers.Distort(.25, [0,0,0])])
+modifiers = [
+    modifiers.Distort(InterpolatorEvaluator(0, .4, .5, True), [InterpolatorEvaluator(0, 1, .5, True),InterpolatorEvaluator(0, 2, 1, True),InterpolatorEvaluator(0, .4, 2, True)])
+]
+solver = solver.GeneralSolver(primitives, modifiers)
 # shader = shader.SimpleLightShader([-3, -4, -2], [1, .2, .4])
 
 lights = {
@@ -35,16 +42,27 @@ lights = {
 }
 shader = shader.SimpleLightShader(lights)
 
-
-import multiprocessing as mp
-
-def my_func(x,y):
-    print(x*y)
 if __name__ == "__main__":
     freeze_support()
-    
-    renderer = renderer.SolverRenderer(camera_o, film_o, solver, shader)
-    renderer.evaluate(0)
-    renderer.prepare_render()
-    renderer.render()
-    renderer.get_image().show()
+    renderer_o = renderer.SolverRenderer(camera_o, film_o, solver, shader)
+
+    if(settings.video_render):
+        for frame in progressbar.progressbar(range(settings.start_frame, settings.end_frame)):
+            renderer_o.evaluate(frame / settings.ups)
+            renderer_o.prepare_render()
+            renderer_o.render()
+            img = renderer_o.get_image()
+            img.save(os.path.join(settings.file_path, "img" + str(frame) + ".png"))
+
+
+        helpers.save_video()
+    else:
+        renderer_o.evaluate(settings.still_render_t)
+        renderer_o.prepare_render()
+        renderer_o.render()
+
+
+        img = renderer_o.get_image()
+        img.save(os.path.join(settings.file_path, "result.png"))
+
+        img.show()

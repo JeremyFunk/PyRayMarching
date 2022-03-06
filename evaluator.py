@@ -1,5 +1,5 @@
 from abc import ABCMeta, abstractmethod
-from settings import max_dist, min_dist, step_number, small_step
+from settings import max_dist, min_dist, step_number, small_step, epsilon
 import helpers
 import math
 from dataclasses import dataclass
@@ -31,9 +31,12 @@ class InterpolatorEvaluator(Evaluator):
         pass
         
     def evaluate(self, t):
-        f = (t % interval) / self.interval
+        if(t == 0):
+            return self.val_min
 
-        if self.oscilate and t % (interval * 2) > interval:
+        f = (t % self.interval) / self.interval
+
+        if self.oscilate and t % (self.interval * 2) >= self.interval - epsilon:
             f = 1 - f
             
         return self.val_min * (1 - f) + self.val_max * f
@@ -77,7 +80,7 @@ def convert_to_evaluator(f):
 
     if isinstance(f, list):
         if(len(f) == 3):
-            return ConstructVector3Evaluator(FloatEvaluator(f[0]), FloatEvaluator(f[1]), FloatEvaluator(f[2]))
+            return ConstructVector3Evaluator(convert_to_evaluator(f[0]), convert_to_evaluator(f[1]), convert_to_evaluator(f[2]))
         else:
             raise Exception("Unknown length of evaluator")
     
