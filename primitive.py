@@ -219,7 +219,7 @@ class Mandelbulb2(Primitive):
         r = 0.0;
         iterations = 0;
 
-        for i in range(25):
+        for i in range(15):
             iterations = i;
             r = helpers.vec_len(z)
 
@@ -237,7 +237,7 @@ class Mandelbulb2(Primitive):
             z = [math.sin(theta)*math.cos(phi) * zr, math.sin(phi)*math.sin(theta) * zr, math.cos(theta) * zr];
             z = [z[0] + pos[0], z[1] + pos[1], z[2] + pos[2]];
         dst = 0.5*math.log(r)*r/dr;
-        return MapReturn([iterations], dst);
+        return MapReturn([iterations, iterations, iterations], dst);
 
 
         # return 

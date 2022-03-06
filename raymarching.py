@@ -16,6 +16,7 @@ import transitions
 from multiprocessing import freeze_support
 import settings
 import progressbar
+import postprocessors
 
 freeze_support()
 
@@ -23,7 +24,7 @@ camera_o = camera.PinholeCamera([0, 0, InterpolatorEvaluator(2, 1.4, 3, True, tr
 color_filter1 = color_filter.GrayFilter(.99)
 color_filter2 = color_filter.ColorShift([0, 0, 1], color_filter1)
 film_o = film.FilteredFilm(color_filter2)
-film_o = film.BasicFilm()
+film_o = film.BasicFilm([postprocessors.BloomPostProcessor()])
 rotation = [
     InterpolatorEvaluator(160, 180, 3, True, transitions.Smoothstep(2)),
     0,
@@ -67,14 +68,15 @@ lights = {
     light.PointLight([-10, 4, -2], [1, .2, 0], 300),
     light.PointLight([10 , -4, -8], [0, 1, 1], 300)
 }
-# shader = shader.ColorShader()
-shader = shader.FractalShader([.7, .4, .6])
-# shader = shader.SimpleLightShader(lights)
+# shader_o = shader.ColorShader()
+shader_o = shader.FractalShader([.4, .1, .2], [.9, .2, .3], 30, [InterpolatorEvaluator(-45, 90, 3), -45, -45])
+shader_o.set_background_shader(shader.BackgroundLinearYGradient([0.05, 0.02, 0.04], [0.1, 0.06, 0.06], 0, 1))
+# shader_o = shader.SimpleLightShader(lights)
 
 
 if __name__ == "__main__":
     freeze_support()
-    renderer_o = renderer.SolverRenderer(camera_o, film_o, solver, shader)
+    renderer_o = renderer.SolverRenderer(camera_o, film_o, solver, shader_o)
 
     if(settings.video_render):
         for frame in progressbar.progressbar(range(settings.start_frame, settings.end_frame)):
@@ -82,7 +84,8 @@ if __name__ == "__main__":
             renderer_o.prepare_render()
             renderer_o.render()
             img = renderer_o.get_image()
-            img.save(os.path.join(settings.file_path, "img" + str(frame) + ".png"))
+            img.raw.save(os.path.join(settings.file_path, "img_raw" + str(frame) + ".png"))
+            img.processed.save(os.path.join(settings.file_path, "img" + str(frame) + ".png"))
 
 
         helpers.save_video()
@@ -93,6 +96,7 @@ if __name__ == "__main__":
 
 
         img = renderer_o.get_image()
-        img.save(os.path.join(settings.file_path, "result.png"))
+        img.raw.save(os.path.join(settings.file_path, "result_raw.png"))
+        img.processed.save(os.path.join(settings.file_path, "result.png"))
 
-        img.show()
+        img.processed.show()

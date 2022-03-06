@@ -40,7 +40,7 @@ class PinholeCamera(Camera):
         rx = (2 * (x + .5) / self.width - 1) * self.ar * self.scale
         ry = (1 - 2 * (y + .5) / self.height) * self.scale
         
-        return helpers.vec_normalize([-ry, -rx, -1])
+        return helpers.vec_normalize([rx, ry, -1])
         
     def evaluate(self, t):
         super().evaluate(t)
