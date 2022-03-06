@@ -16,11 +16,18 @@ class Film(metaclass=ABCMeta):
     
     def build_image(self) -> Image.Image:
         pass
+      
+    @abstractmethod
+    def evaluate(self, t):
+        pass
+    
+    @abstractmethod
+    def prepare_render(self):
+        pass
     
 class BasicFilm(Film):
     def __init__(self):
-        print("Film initialized")
-        self.data = np.zeros((width,height,3), dtype=np.float32 )
+        pass
         
     def write_pixel(self, x, y, col):
         self.data[x,y] = col
@@ -28,7 +35,12 @@ class BasicFilm(Film):
     def build_image(self):
         formatted = (np.clip(self.data, 0, 1) * 255).astype('uint8')
         return Image.fromarray(formatted)
-    
+
+    def evaluate(self, t):
+        pass
+
+    def prepare_render(self):
+        self.data = np.zeros((width,height,3), dtype=np.float32 )
 
 class FilteredFilm(Film):
     def __init__(self, color_filter):
@@ -41,3 +53,9 @@ class FilteredFilm(Film):
     def build_image(self):
         formatted = (np.clip(self.data, 0, 1) * 255).astype('uint8')
         return Image.fromarray(formatted)
+
+    def evaluate(self, t):
+        pass
+    
+    def prepare_render(self):
+        self.data = np.zeros((width,height,3), dtype=np.float32 )

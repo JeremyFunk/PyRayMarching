@@ -14,6 +14,10 @@ class Camera(metaclass=ABCMeta):
     @abstractmethod
     def generate_ray(self, x, y):
         pass
+
+    @abstractmethod
+    def evaluate(self, t):
+        pass
     
 class PinholeCamera(Camera):
     
@@ -26,6 +30,7 @@ class PinholeCamera(Camera):
         rx = (2 * (x + .5) / self.width - 1) * self.ar * self.scale
         ry = (1 - 2 * (y + .5) / self.height) * self.scale
         
+        return helpers.vec_normalize([-ry, -rx, -1])
         
-        return helpers.vec_normalize([-ry, -rx, 1])
-        
+    def evaluate(self, t):
+        pass

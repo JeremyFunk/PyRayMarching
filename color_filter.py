@@ -1,6 +1,6 @@
 from abc import ABCMeta, abstractmethod
 import helpers
-
+from evaluator import convert_to_evaluator
 class Filter(metaclass=ABCMeta):
     
     @abstractmethod
@@ -14,20 +14,30 @@ class Filter(metaclass=ABCMeta):
     @abstractmethod
     def _filter(self, x, y, col):
         pass
+
+    @abstractmethod
+    def evaluate(self, t):
+        pass
     
 class ColorShift(Filter):
     def __init__(self, color_shift, filter = None):
         super().__init__(filter)
-        self.color_shift = color_shift
+        self.color_shift_ev = convert_to_evaluator(color_shift)
     
+    def evaluate(self, t):
+        self.color_shift = self.color_shift_ev.evaluate(t)
+
     def _filter(self, x, y, col):
         return [col[0] + self.color_shift[0], col[1] + self.color_shift[1], col[2] + self.color_shift[2]]
     
 class GrayFilter(Filter):
     def __init__(self, strength, filter = None):
         super().__init__(filter)
-        self.strength = strength
+        self.strength_ev = convert_to_evaluator(strength)
     
+    def evaluate(self, t):
+        self.strength = self.strength_ev.evaluate(t)
+
     def _filter(self, x, y, col):
         gray_shifted = (col[0] + col[1] + col[2]) * .333
         gray_shifted_vec = [gray_shifted, gray_shifted, gray_shifted]

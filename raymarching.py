@@ -8,6 +8,8 @@ import renderer
 import solver
 import shader
 import primitive
+import modifiers
+import light
 from multiprocessing import freeze_support
 
 freeze_support()
@@ -19,14 +21,19 @@ film_o = film.FilteredFilm(color_filter2)
 film_o = film.BasicFilm()
 
 primitives = [
-    primitive.SpherePrimitive([0, 0, 5], 2)
+    primitive.SpherePrimitive([0, 0, -10], 2)
     # primitive.SiperskiPyramid([0, 0, 5])
 ]
 
 # solver = solver.DisplacedSphereSolver([0, 0, -5], 2)
-solver = solver.GeneralSolver(primitives, True)
+solver = solver.GeneralSolver(primitives, [modifiers.Distort(.25, [0,0,0])])
 # shader = shader.SimpleLightShader([-3, -4, -2], [1, .2, .4])
-shader = shader.NormalShader()
+
+lights = {
+    light.PointLight([-10, 4, -2], [1, .2, 0], 300),
+    light.PointLight([10 , -4, -8], [0, 1, 1], 300)
+}
+shader = shader.SimpleLightShader(lights)
 
 
 import multiprocessing as mp
@@ -37,5 +44,7 @@ if __name__ == "__main__":
     freeze_support()
     
     renderer = renderer.SolverRenderer(camera_o, film_o, solver, shader)
+    renderer.evaluate(0)
+    renderer.prepare_render()
     renderer.render()
-    renderer.display()
+    renderer.get_image().show()

@@ -3,6 +3,8 @@ import math
 import helpers
 import settings
 from solver import IntersectionInfo
+import numpy as np
+import light
 
 class Shader(metaclass=ABCMeta):
     
@@ -14,6 +16,10 @@ class Shader(metaclass=ABCMeta):
     def shade(self, i: IntersectionInfo):
         pass
     
+    @abstractmethod
+    def evaluate(self, t):
+        pass
+    
 class NormalShader(Shader):
     def __init__(self):
         pass
@@ -21,7 +27,10 @@ class NormalShader(Shader):
         if not solve.hit:
             return [0, 0, 0]
         return [solve.normal[0] * .5 + .5, solve.normal[1] * .5 + .5, solve.normal[2] * .5 + .5]
-        
+    
+    
+    def evaluate(self, t):
+        pass
 
 class DepthShader(Shader):
     def __init__(self, min_depth, max_depth):
@@ -39,17 +48,24 @@ class DepthShader(Shader):
         return [depth_value, depth_value, depth_value]
         
 
+    def evaluate(self, t):
+        pass
 
 class SimpleLightShader(Shader):
-    def __init__(self, light_pos, light_col):
-        self.light_pos = light_pos
-        self.light_col = light_col
+    def __init__(self, lights: [light.Light]):
+        self.lights = lights
 
     def shade(self, solve: IntersectionInfo):
         if not solve.hit:
             return [0, 0, 0]
 
-        light_dir = helpers.vec_normalize([solve.position[0] - self.light_pos[0], solve.position[1] - self.light_pos[1], solve.position[2] - self.light_pos[2]])
-        diffuse_intensity = max(0, helpers.vec_dot(solve.normal, light_dir))
-        return [self.light_col[0] * diffuse_intensity, self.light_col[1] * diffuse_intensity, self.light_col[2] * diffuse_intensity]
+        total_illumination = [0, 0, 0]
+        for l in self.lights:
+            light_info = l.light(solve)
+            current_illumination = np.multiply(max(0, helpers.vec_dot(solve.normal, [-light_info.light_dir[0], -light_info.light_dir[1], -light_info.light_dir[2]])), light_info.light_intensity)
+            total_illumination = np.add(total_illumination, current_illumination)
+        return total_illumination
         
+    def evaluate(self, t):
+        for l in self.lights:
+            l.evaluate(t)

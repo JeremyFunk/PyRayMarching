@@ -1,15 +1,15 @@
 from abc import ABCMeta, abstractmethod
 import camera
 import film
-from settings import width, height, tile_size, threads
+from settings import width, height, tile_size, threads, end_frame, start_frame, fps, ups
 import solver
 import shader
 from multiprocessing import Pool
+import time
 
 class Renderer(metaclass=ABCMeta):
     @abstractmethod
-    def __init__(self, camera: camera.Camera):
-        self.camera = camera
+    def __init__(self):
         pass
         
     @abstractmethod
@@ -18,13 +18,21 @@ class Renderer(metaclass=ABCMeta):
     
     
     @abstractmethod
-    def display(self):
+    def get_image(self):
         pass
     
     
+    @abstractmethod
+    def evaluate(self, t):
+        pass
+    
+    @abstractmethod
+    def prepare_render(self):
+        pass
+
 class CameraRayRenderer(Renderer):
     def __init__(self, camera: camera.Camera, film: film.Film):
-        super().__init__(camera)
+        self.camera = camera
         self.film = film
         pass
         
@@ -33,27 +41,57 @@ class CameraRayRenderer(Renderer):
             for y in range(height):
                 self.film.write_pixel(x, y, self.camera.generate_ray(x, y))
                 
-    def display(self):
-        image = self.film.build_image()
-        image.show()
+    def get_image(self):
+        return self.film.build_image()
+
+    def evaluate(self, t):
+        pass
+
+    def prepare_render(self):
+        pass
+class VideoRenderer():
+    def __init__(self, renderer: Renderer):
+        self.renderer = renderer
+        pass
+        
+    def render(self):
+        for frame in range(start_frame, end_frame):
+            self.renderer.evaluate(frame / ups)
+            self.renderer.prepare_render()
+            self.renderer.render()
+            img = self.renderer.get_image()
+        pass
 
 class SolverRenderer(Renderer):
     def __init__(self, camera: camera.Camera, film: film.Film, solver: solver.Solver, shader: shader.Shader):
-        super().__init__(camera)
+        self.camera = camera
         self.film = film
         self.solver = solver
         self.shader = shader
         pass
         
     def render(self):
+        render_time = time.perf_counter()
+        if(threads == 1):
+            e = self._render_thread(0, 0, width, height)
+            print("Render took:" + str(time.perf_counter() - render_time))
+            for x in range(len(e['data'])):
+                for y in range(len(e['data'][x])):
+                    self.film.write_pixel(x + e['position'][0], y + e['position'][1], e['data'][x][y])
+            print("Total took:" + str(time.perf_counter() - render_time))
+            return
+
         tiles_x = width / tile_size
         tiles_y = height / tile_size
 
         if tiles_x % 1 != 0:
-            tiles_x = int(tiles_x) + 1
-            
+            tiles_x = tiles_x + 1
         if tiles_y % 1 != 0:
-            tiles_y = int(tiles_y) + 1
+            tiles_y = tiles_y + 1
+
+        tiles_x = int(tiles_x)
+        tiles_y = int(tiles_y)
+
         process_data = []
         for tile_x in range(tiles_x):
             for tile_y in range(tiles_y):
@@ -71,10 +109,13 @@ class SolverRenderer(Renderer):
         result = pool.starmap(self._render_thread, process_data)
         pool.close()
         pool.join()
+        print("Render took:" + str(time.perf_counter() - render_time))
         for e in result:
             for x in range(len(e['data'])):
                 for y in range(len(e['data'][x])):
                     self.film.write_pixel(x + e['position'][0], y + e['position'][1], e['data'][x][y])
+        
+        print("Total took:" + str(time.perf_counter() - render_time))
         
     def _render_thread(self, min_x, min_y, max_x, max_y):
         elements = []
@@ -90,6 +131,14 @@ class SolverRenderer(Renderer):
         return {'data': elements, 'position': [min_x, min_y, max_x, max_y]}
                 
                 
-    def display(self):
-        image = self.film.build_image()
-        image.show()
+    def get_image(self):
+        return self.film.build_image()
+
+    def evaluate(self, t):
+        self.camera.evaluate(t)
+        self.solver.evaluate(t)
+        self.film.evaluate(t)
+        self.shader.evaluate(t)
+
+    def prepare_render(self):
+        self.film.prepare_render()

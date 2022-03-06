@@ -3,6 +3,7 @@ from settings import max_dist, min_dist, step_number, small_step
 import helpers
 import math
 import numpy as np
+from evaluator import convert_to_evaluator
 
 class Primitive(metaclass=ABCMeta):
     @abstractmethod
@@ -13,10 +14,14 @@ class Primitive(metaclass=ABCMeta):
     def map_primitive(self, pos):
         pass
     
+    @abstractmethod
+    def evaluate(self, t):
+        pass
+    
 class SpherePrimitive(Primitive):
     def __init__(self, pos, rad):
-        self.pos = pos
-        self.rad = rad
+        self.pos_ev = convert_to_evaluator(pos)
+        self.rad_ev = convert_to_evaluator(rad)
         pass
 
     def map_primitive(self, pos):
@@ -24,10 +29,15 @@ class SpherePrimitive(Primitive):
         dist = helpers.vec_len(dist_vec) - self.rad
         return dist
     
+    def evaluate(self, t):
+        self.pos = self.pos_ev.evaluate(t)
+        self.rad = self.rad_ev.evaluate(t)
+
+    
 class BoxPrimitive(Primitive):
     def __init__(self, pos, bounds):
-        self.pos = pos
-        self.bounds = bounds
+        self.pos = convert_to_evaluator(pos)
+        self.bounds = convert_to_evaluator(bounds)
         pass
 
     def map_primitive(self, pos):
@@ -35,6 +45,9 @@ class BoxPrimitive(Primitive):
 
         return min(max(dist_vec[0],max(dist_vec[1], dist_vec[2])), 0.0) + helpers.vec_len(helpers.vec_max(dist_vec, 0))
 
+    def evaluate(self, t):
+        self.pos = self.pos_ev.evaluate(t)
+        self.bounds = self.bounds.evaluate(t)
     
 # class FlowerLike(Primitive):
 #     def __init__(self, pos):
