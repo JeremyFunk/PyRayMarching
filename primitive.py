@@ -49,6 +49,8 @@ class BoxPrimitive(Primitive):
         self.pos = self.pos_ev.evaluate(t)
         self.bounds = self.bounds.evaluate(t)
     
+# class MergePrimitive(Primtive):
+
 # class FlowerLike(Primitive):
 #     def __init__(self, pos):
 #         self.pos = pos

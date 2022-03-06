@@ -12,6 +12,7 @@ import modifiers
 import light
 from evaluator import InterpolatorEvaluator
 import os
+import transitions
 from multiprocessing import freeze_support
 import settings
 import progressbar
@@ -25,13 +26,15 @@ film_o = film.FilteredFilm(color_filter2)
 film_o = film.BasicFilm()
 
 primitives = [
-    primitive.SpherePrimitive([0, 0, -10], InterpolatorEvaluator(2, 3, .5, True))
+    primitive.SpherePrimitive([0, 0, -10], InterpolatorEvaluator(2, 3, .5, True, transitions.Smoothstep(2)))
     # primitive.SiperskiPyramid([0, 0, 5])
 ]
 
 # solver = solver.DisplacedSphereSolver([0, 0, -5], 2)
 modifiers = [
-    modifiers.Distort(InterpolatorEvaluator(0, .4, .5, True), [InterpolatorEvaluator(0, 1, .5, True),InterpolatorEvaluator(0, 2, 1, True),InterpolatorEvaluator(0, .4, 2, True)])
+    modifiers.Distort(InterpolatorEvaluator(0, .3, 2, True, None, .2), [0, 0, 0], 2.0),
+    modifiers.Distort(InterpolatorEvaluator(.1, .2, 1, True, None, .4), [1, 1, 1], 4.0),
+    modifiers.Distort(InterpolatorEvaluator(0, .1, .2, True, None, .6), [2, 2, 2], 8.0),
 ]
 solver = solver.GeneralSolver(primitives, modifiers)
 # shader = shader.SimpleLightShader([-3, -4, -2], [1, .2, .4])
